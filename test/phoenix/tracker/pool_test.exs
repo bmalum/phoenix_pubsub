@@ -143,4 +143,21 @@ defmodule Phoenix.Tracker.PoolTest do
       for t <- topics, do: assert(Tracker.list(server, t) == [])
     end
   end
+
+  @tag pool_size: 1
+  test "permdown_on_shutdown broadcasts graceful permdown when tracker name differs from module",
+       %{server: server} do
+    # TestTracker is the tracker module, `name` is the registered tracker
+    # name, as with Phoenix.Presence (Phoenix.Presence.Tracker vs MyApp.Presence)
+    name = :"#{server}_shutdown"
+    {:ok, sup} = start_pool(name: name, pool_size: 1, permdown_on_shutdown: true)
+    Process.unlink(sup)
+    subscribe_to_server(shard_name(name))
+    ref = Process.monitor(sup)
+
+    Supervisor.stop(sup, :shutdown)
+
+    assert_receive {:pub, :graceful_permdown, {_node, _vsn}}, @timeout
+    assert_receive {:DOWN, ^ref, :process, ^sup, :shutdown}, @timeout * 10
+  end
 end

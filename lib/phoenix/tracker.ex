@@ -341,7 +341,7 @@ defmodule Phoenix.Tracker do
           [
             %{
               id: :shutdown_handler,
-              start: {Phoenix.Tracker.ShutdownHandler, :start_link, [tracker]}
+              start: {Phoenix.Tracker.ShutdownHandler, :start_link, [name]}
             }
           ]
       else
