@@ -521,8 +521,9 @@ defmodule Phoenix.Tracker.State do
 
     new_clouds = Map.delete(state.clouds, replica)
     new_delta = remove_down_replicas(state.delta, replica)
+    new_replicas = Map.delete(state.replicas, replica)
 
-    %{state | context: new_ctx, clouds: new_clouds, delta: new_delta}
+    %{state | context: new_ctx, clouds: new_clouds, delta: new_delta, replicas: new_replicas}
   end
 
   def remove_down_replicas(%State{mode: :delta, range: range} = delta, replica) do

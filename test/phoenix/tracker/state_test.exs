@@ -304,8 +304,34 @@ defmodule Phoenix.Tracker.StateTest do
 
     state2 = State.remove_down_replicas(state2, {:node1, 1})
     assert [{^bob, "lobby", :bob}] = tab2list(state2.pids)
+    assert state2.replicas == %{{:node2, 1} => :up}
     {state2, _, _} = State.replica_up(state2, {:node1, 1})
     assert keys(State.online_list(state2)) == [:bob]
+  end
+
+  test "remove_down_replicas does not accumulate permanently down replicas", config do
+    state = new(:node1, config)
+    me = new_pid()
+    state = State.join(state, me, "lobby", :me)
+
+    # Each (re)start of a peer shard produces a fresh {node, vsn} ref which
+    # goes through replica_up -> replica_down -> remove_down_replicas.
+    state =
+      Enum.reduce(1..2_000, state, fn vsn, acc ->
+        ref = {:peer, vsn}
+        {acc, _, _} = State.replica_up(acc, ref)
+        {acc, _, _} = State.replica_down(acc, ref)
+        State.remove_down_replicas(acc, ref)
+      end)
+
+    assert state.replicas == %{{:node1, 1} => :up}
+    assert {{:node1, 1}, %{{:node1, 1} => _}} = State.clocks(state)
+
+    # With stale :down entries these lookups build an ETS match spec guard
+    # that grows per entry and eventually raises SystemLimitError.
+    assert [{:me, %{}}] = State.get_by_topic(state, "lobby")
+    assert [{^me, %{}}] = State.get_by_key(state, "lobby", :me)
+    assert keys(State.online_list(state)) == [:me]
   end
 
   test "basic deltas", config do
